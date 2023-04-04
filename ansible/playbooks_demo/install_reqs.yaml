@@ -1,0 +1,97 @@
+---
+
+- hosts: Amazon
+  user: ec2-user
+  name: Amazon Linux 2 play
+  become: true
+  tasks:
+  - name: ensure amazon-linux-extras is installed
+    yum:
+      name: amazon-linux-extras
+      state: present
+  - name: enable epel
+    command: amazon-linux-extras enable epel
+  - name: install epel-release
+    yum:
+      name: epel-release
+      state: present
+  - name: install certbot
+    yum:
+      name: certbot
+      state: present
+  - name: update openssh
+    package:
+      name: openssh
+      state: latest
+
+- hosts: Ubuntu
+  user: ubuntu
+  name: Ubuntu play
+  become: true
+  tasks:
+  - name: ensure snapd is installed
+    package:
+      name: snapd
+      state: present
+    register: snapd_install
+  - name: ensure snapd is enabled
+    systemd:
+      name: snapd.socket
+      enabled: true
+      state: started
+  - name: update snap after install
+    shell: snap install core; snap refresh core
+    changed_when: true
+    failed_when: false
+    when: snapd_install is changed
+  - name: install certbot via snap
+    shell: snap install certbot --classic
+  - name: update openssh
+    package:
+      name: openssh-server
+      state: latest
+
+- hosts: Debian
+  user: admin
+  name: Debian play
+  become: true
+  tasks:
+  - name: update apt
+    command: apt update
+  - name: install snapd
+    ansible.builtin.apt:
+      name: snapd
+      state: present
+    register: snapd_install
+  - name: ensure snapd is enabled
+    systemd:
+      name: snapd.socket
+      enabled: true
+      state: started
+  - name: update snap after install
+    shell: snap install core; snap refresh core
+    changed_when: true
+    failed_when: false
+    when: snapd_install is changed
+  - name: install certbot via snap
+    shell: snap install certbot --classic
+  - name: update openssh
+    apt:
+      name: openssh-server
+      state: latest
+
+- hosts: all
+  become: true
+  tasks:
+  - name: certbot version
+    shell: certbot --version
+    register: certbot_version
+    when: ansible_facts["distribution"] != "Debian"
+  - name: openssh version
+    shell: ssh -V
+    register: openssh_version
+  - name: print certbot version
+    debug: msg="{{ certbot_version.stderr if (ansible_facts["distribution"] == "Amazon") else certbot_version.stdout }}"
+    when: ansible_facts["distribution"] != "Debian"
+  - name: print openssh version
+    debug: msg="{{ openssh_version.stderr }}"

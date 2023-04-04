@@ -1,0 +1,687 @@
+Description: This template deploys a VPC with its subnets, gateways, route tables, and security group. This template also deploys an RDS DB instance, an EKS Cluster, and an ECS Cluster.
+
+Parameters:
+  Initials:
+    Description: Initials of the person creating this stack. For demo purposes.
+    Type: String
+    Default: "SM"
+
+  EnvironmentName:
+    Description: Environment name that is suffixed to resource names.
+    Type: String
+    Default: "Dev"
+
+  Region:
+    Description: Region the resources will be created at.
+    Type: String
+
+  VpcCIDR:
+    Description: The IP range (CIDR notation) for this VPC.
+    Type: String
+    Default: "192.168.0.0/16"
+
+  PublicSubnet1CIDR:
+    Description: An IP range for a subnet.
+    Type: String
+    Default: "192.168.101.0/24"
+
+  PublicSubnet2CIDR:
+    Description: An IP range for a subnet.
+    Type: String
+    Default: "192.168.102.0/24"
+
+  PublicSubnet3CIDR:
+    Description: An IP range for a subnet.
+    Type: String
+    Default: "192.168.103.0/24"
+
+  PrivateSubnet1CIDR:
+    Description: An IP range for a subnet.
+    Type: String
+    Default: "192.168.1.0/24"
+
+  PrivateSubnet2CIDR:
+    Description: An IP range for a subnet.
+    Type: String
+    Default: "192.168.2.0/24"
+
+  PrivateSubnet3CIDR:
+    Description: An IP range for a subnet.
+    Type: String
+    Default: "192.168.3.0/24"
+
+  ClusterName:
+    Description: Name given to the EKS Cluster.
+    Type: String
+    Default: "aline"
+
+  AllocatedStorage:
+    Description: Number of GBs allocated for storage.
+    Type: String
+    Default: "20"
+  
+  DbName:
+    Description: Name of the Database.
+    Type: String
+    Default: "alinedb"
+
+  Engine:
+    Description: Engine of the Database.
+    Type: String
+    Default: "mysql"
+
+  EngineVersion:
+    Description: Version of the Database's engine.
+    Type: String
+    Default: "8.0.28"
+
+  InstanceClass:
+    Description: Class of the Database's instance.
+    Type: String
+    Default: "db.t3.micro"
+
+  StorageType:
+    Description: Type of storage of the Database.
+    Type: String
+    Default: "gp2"
+
+  Port:
+    Description: The port to connect to the Database.
+    Type: String
+    Default: "3306"
+
+  MasterUsername:
+    Description: Username of the master user.
+    Type: String
+
+  MasterUserPassword:
+    Description: Password of the master user.
+    Type: String
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: "default"
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "VPC", !Ref EnvironmentName]]
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Join ["", [!Ref Region, "a"]]
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      VpcId: !GetAtt VPC.VpcId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "PublicSubnet1", !Ref EnvironmentName]]
+        - Key: !Join ["/", ["kubernetes.io/cluster", !Join ["-", [!Ref Initials, !Ref ClusterName, !Ref EnvironmentName]]]]
+          Value: "shared"
+        - Key: "kubernetes.io/role/elb"
+          Value: 1
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Join ["", [!Ref Region, "b"]]
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      VpcId: !GetAtt VPC.VpcId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "PublicSubnet2", !Ref EnvironmentName]]
+        - Key: !Join ["/", ["kubernetes.io/cluster", !Join ["-", [!Ref Initials, !Ref ClusterName, !Ref EnvironmentName]]]]
+          Value: "shared"
+        - Key: "kubernetes.io/role/elb"
+          Value: 1
+  PublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Join ["", [!Ref Region, "c"]]
+      CidrBlock: !Ref PublicSubnet3CIDR
+      MapPublicIpOnLaunch: true
+      VpcId: !GetAtt VPC.VpcId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "PublicSubnet3", !Ref EnvironmentName]]
+        - Key: !Join ["/", ["kubernetes.io/cluster", !Join ["-", [!Ref Initials, !Ref ClusterName, !Ref EnvironmentName]]]]
+          Value: "shared"
+        - Key: "kubernetes.io/role/elb"
+          Value: 1
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Join ["", [!Ref Region, "a"]]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      VpcId: !GetAtt VPC.VpcId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "PrivateSubnet1", !Ref EnvironmentName]]
+        - Key: !Join ["/", ["kubernetes.io/cluster", !Join ["-", [!Ref Initials, !Ref ClusterName, !Ref EnvironmentName]]]]
+          Value: "shared"
+        - Key: "kubernetes.io/role/internal-elb"
+          Value: 1
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Join ["", [!Ref Region, "b"]]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      VpcId: !GetAtt VPC.VpcId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "PrivateSubnet2", !Ref EnvironmentName]]
+        - Key: !Join ["/", ["kubernetes.io/cluster", !Join ["-", [!Ref Initials, !Ref ClusterName, !Ref EnvironmentName]]]]
+          Value: "shared"
+        - Key: "kubernetes.io/role/internal-elb"
+          Value: 1
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Join ["", [!Ref Region, "c"]]
+      CidrBlock: !Ref PrivateSubnet3CIDR
+      VpcId: !GetAtt VPC.VpcId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "PrivateSubnet3", !Ref EnvironmentName]]
+        - Key: !Join ["/", ["kubernetes.io/cluster", !Join ["-", [!Ref Initials, !Ref ClusterName, !Ref EnvironmentName]]]]
+          Value: "shared"
+        - Key: "kubernetes.io/role/internal-elb"
+          Value: 1
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join ["-" , [!Ref Initials, "InternetGateway", !Ref EnvironmentName]]
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !GetAtt InternetGateway.InternetGatewayId
+      VpcId: !GetAtt VPC.VpcId
+  EIP1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: "vpc"
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "EIP1", !Ref EnvironmentName]]
+  EIP2:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: "vpc"
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "EIP2", !Ref EnvironmentName]]
+  EIP3:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: "vpc"
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "EIP3", !Ref EnvironmentName]]
+  NATGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIP1.AllocationId
+      ConnectivityType: "public"
+      SubnetId: !GetAtt PublicSubnet1.SubnetId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "NATGateway1", !Ref EnvironmentName]]
+  NATGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIP2.AllocationId
+      ConnectivityType: "public"
+      SubnetId: !GetAtt PublicSubnet2.SubnetId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "NATGateway2", !Ref EnvironmentName]]
+  NATGateway3:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIP3.AllocationId
+      ConnectivityType: "public"
+      SubnetId: !GetAtt PublicSubnet1.SubnetId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "NATGateway3", !Ref EnvironmentName]]
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !GetAtt VPC.VpcId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "PublicRouteTable", !Ref EnvironmentName]]
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !GetAtt VPC.VpcId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "PrivateRouteTable1", !Ref EnvironmentName]]
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !GetAtt VPC.VpcId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "PrivateRouteTable2", !Ref EnvironmentName]]
+  PrivateRouteTable3:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !GetAtt VPC.VpcId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "PrivateRouteTable3", !Ref EnvironmentName]]
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !GetAtt InternetGateway.InternetGatewayId
+      RouteTableId: !GetAtt PublicRouteTable.RouteTableId
+  PrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !GetAtt NATGateway1.NatGatewayId
+      RouteTableId: !GetAtt PrivateRouteTable1.RouteTableId
+  PrivateRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !GetAtt NATGateway2.NatGatewayId
+      RouteTableId: !GetAtt PrivateRouteTable2.RouteTableId
+  PrivateRoute3:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !GetAtt NATGateway3.NatGatewayId
+      RouteTableId: !GetAtt PrivateRouteTable3.RouteTableId
+  PublicRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !GetAtt PublicRouteTable.RouteTableId
+      SubnetId: !GetAtt PublicSubnet1.SubnetId
+  PublicRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !GetAtt PublicRouteTable.RouteTableId
+      SubnetId: !GetAtt PublicSubnet2.SubnetId
+  PublicRouteTableAssociation3:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !GetAtt PublicRouteTable.RouteTableId
+      SubnetId: !GetAtt PublicSubnet3.SubnetId
+  PrivateRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !GetAtt PrivateRouteTable1.RouteTableId
+      SubnetId: !GetAtt PrivateSubnet1.SubnetId
+  PrivateRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !GetAtt PrivateRouteTable2.RouteTableId
+      SubnetId: !GetAtt PrivateSubnet2.SubnetId
+  PrivateRouteTableAssociation3:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !GetAtt PrivateRouteTable3.RouteTableId
+      SubnetId: !GetAtt PrivateSubnet3.SubnetId
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: "A Security Group that gives access to the RDS."
+      GroupName: !Join ["-", [!Ref Initials, "SecurityGroup", !Ref EnvironmentName]]
+      SecurityGroupEgress: 
+        - IpProtocol: "-1"
+          FromPort: 0
+          ToPort: 0
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: "-1"
+          FromPort: 0
+          ToPort: 0
+          CidrIpv6: "::/0"
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: !GetAtt VPC.CidrBlock
+      VpcId: !GetAtt VPC.VpcId
+      Tags: 
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "SecurityGroup", !Ref EnvironmentName]]
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties: 
+      DBSubnetGroupDescription: Subnet group for RDS.
+      DBSubnetGroupName: !Join ["-", [!Ref Initials, "SubnetGroup", !Ref EnvironmentName]]
+      SubnetIds: 
+        - !GetAtt PrivateSubnet1.SubnetId
+        - !GetAtt PrivateSubnet2.SubnetId
+        - !GetAtt PrivateSubnet3.SubnetId
+      Tags:
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, "SubnetGroup", !Ref EnvironmentName]]
+  DbInstance:
+    Type: AWS::RDS::DBInstance
+    DependsOn: DBSubnetGroup
+    Properties: 
+      AllocatedStorage: !Ref AllocatedStorage
+      # AllowMajorVersionUpgrade: Boolean
+      # AssociatedRoles: 
+      #   - DBInstanceRole
+      # AutoMinorVersionUpgrade: Boolean
+      AvailabilityZone: !Join ["", [!Ref Region, "a"]]
+      # BackupRetentionPeriod: Integer
+      # CACertificateIdentifier: String
+      # CertificateDetails: 
+      #   CertificateDetails
+      # CertificateRotationRestart: Boolean
+      # CharacterSetName: String
+      # CopyTagsToSnapshot: Boolean
+      # CustomIAMInstanceProfile: String
+      # DBClusterIdentifier: String
+      # DBClusterSnapshotIdentifier: String
+      DBInstanceClass: !Ref InstanceClass
+      DBInstanceIdentifier: !Ref DbName
+      DBName: !Join ["_", [!Ref Initials, !Ref DbName, !Ref EnvironmentName]]
+      # DBParameterGroupName: String
+      # DBSecurityGroups: 
+      #   - String
+      # DBSnapshotIdentifier: String
+      DBSubnetGroupName: !Join ["-", [!Ref Initials, "SubnetGroup", !Ref EnvironmentName]]
+      # DeleteAutomatedBackups: Boolean
+      # DeletionProtection: Boolean
+      # Domain: String
+      # DomainIAMRoleName: String
+      # EnableCloudwatchLogsExports: 
+      #   - String
+      # EnableIAMDatabaseAuthentication: Boolean
+      # EnablePerformanceInsights: Boolean
+      # Endpoint: 
+      #   Endpoint
+      Engine: !Ref Engine
+      EngineVersion: !Ref EngineVersion
+      # Iops: Integer
+      # KmsKeyId: String
+      # LicenseModel: String
+      # ManageMasterUserPassword: Boolean
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterUserPassword
+      # MasterUserSecret: 
+      #   MasterUserSecret
+      # MaxAllocatedStorage: Integer
+      # MonitoringInterval: Integer
+      # MonitoringRoleArn: String
+      # MultiAZ: Boolean
+      # NcharCharacterSetName: String
+      # NetworkType: String
+      # OptionGroupName: String
+      # PerformanceInsightsKMSKeyId: String
+      # PerformanceInsightsRetentionPeriod: Integer
+      Port: !Ref Port
+      # PreferredBackupWindow: String
+      # PreferredMaintenanceWindow: String
+      # ProcessorFeatures: 
+      #   - ProcessorFeature
+      # PromotionTier: Integer
+      # PubliclyAccessible: Boolean
+      # ReplicaMode: String
+      # RestoreTime: String
+      # SourceDBInstanceAutomatedBackupsArn: String
+      # SourceDBInstanceIdentifier: String
+      # SourceDbiResourceId: String
+      # SourceRegion: String
+      # StorageEncrypted: Boolean
+      StorageType: !Ref StorageType
+      Tags: 
+        - Key: Name
+          Value: !Join ["_", [!Ref Initials, !Ref DbName, !Ref EnvironmentName]]
+      VPCSecurityGroups: 
+        - !GetAtt SecurityGroup.GroupId
+
+  EksCluster:
+    Type: AWS::EKS::Cluster
+    DependsOn:
+      - EksClusterSecurityGroup
+      - EksClusterRole
+    Properties:
+      Logging:
+        ClusterLogging:
+          EnabledTypes:
+            - Type: api
+            - Type: audit
+      Name: !Join ["-", [!Ref Initials, !Ref ClusterName, !Ref EnvironmentName]]
+      ResourcesVpcConfig:
+        EndpointPrivateAccess: true
+        EndpointPublicAccess: true
+        PublicAccessCidrs:
+          - "0.0.0.0/0"
+        SecurityGroupIds:
+          - !GetAtt EksClusterSecurityGroup.GroupId
+        SubnetIds:
+          - !GetAtt PrivateSubnet1.SubnetId
+          - !GetAtt PrivateSubnet2.SubnetId
+          - !GetAtt PrivateSubnet3.SubnetId
+      RoleArn: !GetAtt EksClusterRole.Arn
+      Version: "1.25"
+      Tags: 
+        - Key: Name
+          Value: !Join ["-", [!Ref Initials, !Ref ClusterName, !Ref EnvironmentName]]
+  EksClusterSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "EKS cluster security group."
+      GroupName: !Join ["-", [!Ref ClusterName, "cluster"]]
+      SecurityGroupIngress:
+        - Description: "Node groups to cluster API."
+          FromPort: 443
+          ToPort: 443
+          IpProtocol: "tcp"
+      VpcId: !GetAtt VPC.VpcId
+      Tags: 
+        - Key: Name
+          Value: !Join ["-", [!Ref ClusterName, "cluster"]]
+  EksClusterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - eks.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      RoleName: !Join ["-", [!Ref ClusterName, "cluster"]]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+        - arn:aws:iam::aws:policy/AmazonEKSServicePolicy
+  EksPublicNodegroup:
+    Type: AWS::EKS::Nodegroup
+    DependsOn:
+      - EksCluster
+      - EksNodegroupRole
+    Properties:
+      CapacityType: ON_DEMAND
+      ClusterName: !Join ["-", [!Ref Initials, !Ref ClusterName, !Ref EnvironmentName]]
+      InstanceTypes:
+        - t3.medium
+      Labels: 
+        Network: Public
+      # LaunchTemplate:
+      #   LaunchTemplateSpecification
+      NodegroupName: !Join ["-", [!Ref Initials, "PublicNg", !Ref EnvironmentName]]
+      NodeRole: !GetAtt EksNodegroupRole.Arn
+      ScalingConfig: 
+        DesiredSize: 1
+        MaxSize: 1
+        MinSize: 1
+      Subnets:
+        - !GetAtt PublicSubnet1.SubnetId
+        - !GetAtt PublicSubnet2.SubnetId
+        - !GetAtt PublicSubnet3.SubnetId
+      UpdateConfig: 
+          MaxUnavailablePercentage: 33
+  EksPrivateNodegroup:
+    Type: AWS::EKS::Nodegroup
+    DependsOn:
+      - EksCluster
+      - EksNodegroupRole
+    Properties: 
+      CapacityType: ON_DEMAND
+      ClusterName: !Join ["-", [!Ref Initials, !Ref ClusterName, !Ref EnvironmentName]]
+      InstanceTypes:
+        - t3.medium
+      Labels: 
+        Network: Private
+      # LaunchTemplate:
+      #   LaunchTemplateSpecification
+      NodegroupName: !Join ["-", [!Ref Initials, "PrivateNg", !Ref EnvironmentName]]
+      NodeRole: !GetAtt EksNodegroupRole.Arn
+      ScalingConfig: 
+        DesiredSize: 3
+        MaxSize: 3
+        MinSize: 2
+      Subnets:
+        - !GetAtt PrivateSubnet1.SubnetId
+        - !GetAtt PrivateSubnet2.SubnetId
+        - !GetAtt PrivateSubnet3.SubnetId
+      UpdateConfig: 
+          MaxUnavailablePercentage: 33
+  EksNodegroupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      RoleName: !Join ["-", [!Ref ClusterName, "eks-node-group"]]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+
+  EcsLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: !Join ["-", [!Ref Initials, !Ref ClusterName, "LB"]]
+      Scheme: internet-facing
+      Subnets: 
+        - !GetAtt PublicSubnet1.SubnetId
+        - !GetAtt PublicSubnet2.SubnetId
+        - !GetAtt PublicSubnet3.SubnetId
+      Type: network
+  EcsLbTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: TCP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+
+      IpAddressType: ipv4
+      Name: !Join ["-", [!Ref Initials, !Ref ClusterName, "TargetGroup"]]
+      Port: 8090
+      Protocol: TCP
+      TargetType: instance
+      VpcId: !GetAtt VPC.VpcId
+  EcsLbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions: 
+        - Type: "forward"
+          TargetGroupArn: !Ref EcsLbTargetGroup
+      LoadBalancerArn: !Ref EcsLoadBalancer
+      Port: 8090
+      Protocol: TCP
+  
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join ["-", [!Ref Initials, !Ref ClusterName, "EcsCluster"]]
+      ClusterSettings: 
+        - Name: containerInsights
+          Value: enabled
+      Tags: 
+        - Key: environment
+          Value: !Ref EnvironmentName
+  EcsClusterCpAssociation:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      Cluster: !Ref EcsCluster
+      CapacityProviders:
+        - "FARGATE"
+        - "FARGATE_SPOT"
+      DefaultCapacityProviderStrategy:
+        - Base: 2
+          Weight: 1
+          CapacityProvider: "FARGATE"
+        - Base: 0
+          Weight: 1
+          CapacityProvider: "FARGATE_SPOT"
+
+Outputs:
+  VpcId:
+    Description: The ID of the VPC.
+    Value: !GetAtt VPC.VpcId
+  SecurityGroup:
+    Description: The ID of the default security group for the VPC.
+    Value: !GetAtt VPC.DefaultSecurityGroup
+  PublicSubnetIds:
+    Description: The IDs of the public subnets.
+    Value: !Join [",", [!GetAtt PublicSubnet1.SubnetId, !GetAtt PublicSubnet2.SubnetId, !GetAtt PublicSubnet3.SubnetId]]
+  PrivateSubnetIds:
+    Description: The IDs of the private subnets.
+    Value: !Join [",", [!GetAtt PrivateSubnet1.SubnetId, !GetAtt PrivateSubnet2.SubnetId, !GetAtt PrivateSubnet3.SubnetId]]
+  InternetGatewayId:
+    Description: The ID of the Internet Gateway.
+    Value: !GetAtt InternetGateway.InternetGatewayId
+  NATGatewayIds:
+    Description: The ID of the NAT Gateways.
+    Value: !Join [",", [!GetAtt NATGateway1.NatGatewayId, !GetAtt NATGateway2.NatGatewayId, !GetAtt NATGateway3.NatGatewayId]]
+  PublicRouteTableId:
+    Description: The ID of the Public Route Table.
+    Value: !GetAtt PublicRouteTable.RouteTableId
+  PrivateRouteTableIds:
+    Description: The IDs of the Private Route Tables.
+    Value: !Join [",", [!GetAtt PrivateRouteTable1.RouteTableId, !GetAtt PrivateRouteTable2.RouteTableId, !GetAtt PrivateRouteTable3.RouteTableId]]
+  PublicRouteIds:
+    Description: The IDs of the Public Routes.
+    Value: !Ref PublicRoute
+  PrivateRouteIds:
+    Description: The IDs of the Private Routes.
+    Value: !Join [",", [!Ref PrivateRoute1, !Ref PrivateRoute2, !Ref PrivateRoute3]]
+  PublicRouteTableAssociationIds:
+    Description: The IDs of the Public Route Table Associations.
+    Value: !Join [",", [!GetAtt PublicRouteTableAssociation1.Id, !GetAtt PublicRouteTableAssociation2.Id, !GetAtt PublicRouteTableAssociation3.Id]]
+  PrivateRouteTableAssociationIds:
+    Description: The IDs of the Private Route Table Associations.
+    Value: !Join [",", [!GetAtt PrivateRouteTableAssociation1.Id, !GetAtt PrivateRouteTableAssociation2.Id, !GetAtt PrivateRouteTableAssociation3.Id]]
+  SecurityGroupIds:
+    Description: The ID of the Security Group.
+    Value: !GetAtt SecurityGroup.GroupId
+  ClusterCertificateAuthorityData:
+    Description: The certificate-authority-data for your cluster.
+    Value: !GetAtt EksCluster.CertificateAuthorityData
+  ClusterEndpoint:
+    Description: The endpoint for your Kubernetes API server.
+    Value: !GetAtt EksCluster.Endpoint
+  ClusterOidcIssuerUrl:
+    Description: The issuer URL for the OIDC identity provider.
+    Value: !GetAtt EksCluster.OpenIdConnectIssuerUrl
