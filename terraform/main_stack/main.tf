@@ -13,10 +13,10 @@ terraform {
       version = "4.57.1"
     }
 
-    kubernetes = {
-      source = "hashicorp/kubernetes"
-      version = "2.19.0"
-    }
+    # kubernetes = {
+    #   source = "hashicorp/kubernetes"
+    #   version = "2.19.0"
+    # }
   }
 }
 
@@ -24,9 +24,9 @@ provider "aws" {
   region = var.default_region
 }
 
-provider "kubernetes" {
-  config_path = "~/.kube/config"
-}
+# provider "kubernetes" {
+#   config_path = "~/.kube/config"
+# }
 
 module "vpc" {
   source = "./modules/vpc"
@@ -77,7 +77,25 @@ module "eks" {
   }
 }
 
+resource "null_resource" "updates" {
+  depends_on = [
+    module.eks
+  ]
+
+  provisioner "local-exec" {
+    command = "aws eks update-kubeconfig --name ${var.cluster_name} --region ${var.default_region}"
+  }
+
+  provisioner "local-exec" {
+    command = "helm repo update"
+  }
+}
+
 module "load_balancer_controller" {
+  depends_on = [
+    null_resource.updates
+  ]
+
   source = "git::https://github.com/DNXLabs/terraform-aws-eks-lb-controller.git"
 
   cluster_identity_oidc_issuer     = module.eks.cluster_oidc_issuer_url
@@ -85,16 +103,16 @@ module "load_balancer_controller" {
   cluster_name                     = module.eks.cluster_name
 }
 
-module "elb" {
-  source = "./modules/elb"
+# module "elb" {
+#   source = "./modules/elb"
 
-  subnets = module.vpc.public_subnets
-  vpc_id  = module.vpc.vpc_id
-}
+#   subnets = module.vpc.public_subnets
+#   vpc_id  = module.vpc.vpc_id
+# }
 
-module "cloudwatch" {
-  source = "./modules/cloudwatch"
+# module "cloudwatch" {
+#   source = "./modules/cloudwatch"
 
-  db_identifier = module.rds.db_identifier
-  lb_arn_suffix = module.elb.lb_arn_suffix
-}
+#   db_identifier = module.rds.db_identifier
+#   lb_arn_suffix = module.elb.lb_arn_suffix
+# }

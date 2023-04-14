@@ -1,4 +1,4 @@
-@Library('sebastian-shared-lib') _
+@Library('aline-shared-lib') _
 
 pipeline {
   agent any
@@ -8,11 +8,11 @@ pipeline {
   }
 
   environment {
-    AWS_ACCESS_KEY_ID = credentials('SM_AWS_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = credentials('SM_AWS_SECRET_ACCESS_KEY')
+    AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
     AWS_REGION = "us-east-2"
-    SM_TFVARS = credentials('SM_TFVARS_FILE')
-    cluster_name = "SM_EKS_Cluster"
+    TFVARS = credentials('aline_tfvars_file')
+    cluster_name = "aline_EKS_cluster"
     KUBE_CONFIG_PATH="~/.kube/config"
   }
 
@@ -88,7 +88,7 @@ pipeline {
       steps {
         catchError(buildResult: 'SUCCESS', stageResult: 'SUCCESS') {
           script {
-            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "sm-aws-credentials", accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "aws-credentials", accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
               dir("Terraform/main_stack") {
                 terraform.action("${params.action}")
               }
